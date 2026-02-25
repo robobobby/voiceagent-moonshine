@@ -9,7 +9,7 @@ KEY = os.path.join(DIR, 'key.pem')
 
 import sys
 sys.path.insert(0, DIR)
-from agent_server import get_transcriber, transcribe_audio, get_llm_response, SAMPLE_RATE
+from agent_server import get_transcriber, transcribe_audio, get_llm_response, generate_tts, SAMPLE_RATE
 
 
 async def websocket_handler(request):
@@ -70,6 +70,15 @@ async def websocket_handler(request):
                 'llm_ms': llm_ms,
                 'total_ms': stt_result['duration_ms'] + llm_ms,
             })
+
+            # TTS
+            try:
+                tts_audio = await generate_tts(response_text)
+                if tts_audio:
+                    await ws.send_json({'type': 'tts_audio', 'format': 'mp3', 'size': len(tts_audio)})
+                    await ws.send_bytes(tts_audio)
+            except Exception as e:
+                print(f"TTS error: {e}", flush=True)
 
         elif msg.type == aiohttp.WSMsgType.TEXT:
             data = json.loads(msg.data)
