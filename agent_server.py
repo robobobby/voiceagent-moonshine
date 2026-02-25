@@ -1,6 +1,6 @@
 """
 VoiceAgent — Full Agent Server
-STT (Moonshine) → LLM (OpenAI) → TTS (browser SpeechSynthesis)
+STT (Moonshine) → LLM (OpenAI) → TTS (OpenAI tts-1)
 Push-to-talk: hold to speak, release to get AI response.
 """
 
@@ -95,6 +95,32 @@ async def get_llm_response(conversation: list[dict]) -> str:
     return await asyncio.get_event_loop().run_in_executor(None, _call)
 
 
+async def generate_tts(text: str, voice: str = "nova") -> bytes | None:
+    """Generate speech audio via OpenAI TTS API. Returns MP3 bytes."""
+    import urllib.request
+
+    def _call():
+        body = json.dumps({
+            "model": "tts-1",
+            "input": text,
+            "voice": voice,
+            "response_format": "mp3",
+        }).encode()
+
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/audio/speech",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.read()
+
+    return await asyncio.get_event_loop().run_in_executor(None, _call)
+
+
 async def handle_client(websocket):
     """Handle a WebSocket client — full voice agent loop."""
     print(f"Client connected: {websocket.remote_address}")
@@ -154,13 +180,28 @@ async def handle_client(websocket):
 
                 conversation.append({"role": "assistant", "content": response_text})
 
-                # Step 3: Send response (TTS handled client-side)
+                # Step 3: Send text response immediately
+                total_ms = stt_result['duration_ms'] + llm_ms
                 await websocket.send(json.dumps({
                     'type': 'agent_response',
                     'text': response_text,
                     'llm_ms': llm_ms,
-                    'total_ms': stt_result['duration_ms'] + llm_ms,
+                    'total_ms': total_ms,
                 }))
+
+                # Step 4: Generate TTS audio via OpenAI and send as binary
+                try:
+                    tts_audio = await generate_tts(response_text)
+                    if tts_audio:
+                        # Send a JSON header first so client knows audio is coming
+                        await websocket.send(json.dumps({
+                            'type': 'tts_audio',
+                            'format': 'mp3',
+                            'size': len(tts_audio),
+                        }))
+                        await websocket.send(tts_audio)
+                except Exception as e:
+                    print(f"TTS error: {e}")
 
             elif isinstance(message, str):
                 data = json.loads(message)

@@ -251,7 +251,7 @@
   <div class="empty-chat" id="emptyState">
     <div class="icon">🎙️</div>
     <div class="hint">Hold the mic button or press Space to speak</div>
-    <div class="hint" style="font-size:0.7rem; color: var(--text-muted)">Moonshine STT → GPT-4o-mini → Speech</div>
+    <div class="hint" style="font-size:0.7rem; color: var(--text-muted)">Moonshine STT → GPT-4o-mini → OpenAI TTS</div>
   </div>
 </div>
 
@@ -272,7 +272,7 @@
 </div>
 
 <script>
-const WS_URL = 'ws://localhost:8765';
+const WS_URL = location.protocol === 'https:' ? `wss://${location.hostname}:${location.port}/ws` : 'ws://localhost:8765';
 const SAMPLE_RATE = 16000;
 
 let ws = null;
@@ -298,8 +298,21 @@ function connect() {
     document.getElementById('statusText').textContent = 'reconnecting...';
     setTimeout(connect, 2000);
   };
+  ws.binaryType = 'blob';
   ws.onmessage = (e) => {
+    // Binary message = TTS audio
+    if (e.data instanceof Blob) {
+      if (ttsAudioPending && document.getElementById('ttsToggle').checked) {
+        playTtsAudio(e.data);
+      }
+      ttsAudioPending = false;
+      return;
+    }
     const data = JSON.parse(e.data);
+    if (data.type === 'tts_audio') {
+      ttsAudioPending = true;
+      return;
+    }
     if (data.type === 'user_message') {
       removeThinking();
       addMessage('user', data.text, `${data.audio_seconds}s audio · ${data.stt_ms}ms stt`);
@@ -307,9 +320,7 @@ function connect() {
     } else if (data.type === 'agent_response') {
       removeThinking();
       addMessage('agent', data.text, `${data.llm_ms}ms llm · ${data.total_ms}ms total`);
-      if (document.getElementById('ttsToggle').checked) {
-        speakText(data.text);
-      }
+      // TTS audio arrives as a separate binary message from server
     } else if (data.type === 'error') {
       removeThinking();
       addMessage('agent', data.message, 'error');
@@ -364,30 +375,21 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// --- TTS (browser SpeechSynthesis) ---
-function speakText(text) {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 1.05;
-  utter.pitch = 1.0;
-  // Prefer a natural English voice
-  const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v => v.name.includes('Samantha')) ||
-                    voices.find(v => v.name.includes('Karen')) ||
-                    voices.find(v => v.lang.startsWith('en') && v.localService);
-  if (preferred) utter.voice = preferred;
+// --- TTS (OpenAI server-side, played as audio) ---
+let ttsAudioPending = false;
+let currentAudio = null;
 
+function playTtsAudio(mp3Blob) {
+  const url = URL.createObjectURL(mp3Blob);
+  if (currentAudio) {
+    currentAudio.pause();
+    URL.revokeObjectURL(currentAudio.src);
+  }
+  currentAudio = new Audio(url);
   speaking = true;
-  utter.onend = () => { speaking = false; };
-  utter.onerror = () => { speaking = false; };
-  window.speechSynthesis.speak(utter);
-}
-
-// Preload voices
-if ('speechSynthesis' in window) {
-  speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  currentAudio.onended = () => { speaking = false; URL.revokeObjectURL(url); currentAudio = null; };
+  currentAudio.onerror = () => { speaking = false; URL.revokeObjectURL(url); currentAudio = null; };
+  currentAudio.play().catch(() => { speaking = false; });
 }
 
 // --- Audio Capture ---
@@ -456,7 +458,7 @@ function drawVisualizer() {
 function startRecording() {
   if (!audioCtx) return;
   // Stop any ongoing speech
-  if (speaking) window.speechSynthesis.cancel();
+  if (speaking && currentAudio) { currentAudio.pause(); speaking = false; }
   audioChunks = [];
   recording = true;
   document.getElementById('micBtn').classList.add('recording');
