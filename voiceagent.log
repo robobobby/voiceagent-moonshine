@@ -1,0 +1,42 @@
+Traceback (most recent call last):
+  File "/Users/agent/repos/bobbys-place/voiceagent-moonshine/start_https.py", line 3, in <module>
+    import aiohttp
+ModuleNotFoundError: No module named 'aiohttp'
+Traceback (most recent call last):
+  File "/Users/agent/repos/bobbys-place/voiceagent-moonshine/start_https.py", line 3, in <module>
+    import aiohttp
+ModuleNotFoundError: No module named 'aiohttp'
+Traceback (most recent call last):
+  File "/Users/agent/repos/bobbys-place/voiceagent-moonshine/start_https.py", line 3, in <module>
+    import aiohttp
+ModuleNotFoundError: No module named 'aiohttp'
+Warming up Moonshine...
+Model ready!
+VoiceAgent: https://agents-mac-mini.tail826413.ts.net:8766/agent.html
+WebSocket:  wss://agents-mac-mini.tail826413.ts.net:8766/ws
+Single port — one cert to accept!
+Client connected: 100.99.152.127
+Warming up Moonshine...
+Model ready!
+VoiceAgent: https://agents-mac-mini.tail826413.ts.net:8766/agent.html
+WebSocket:  wss://agents-mac-mini.tail826413.ts.net:8766/ws
+Single port — one cert to accept!
+Client connected: 100.99.152.127
+Warming up Moonshine...
+Model ready!
+VoiceAgent: https://agents-mac-mini.tail826413.ts.net:8766/agent.html
+WebSocket:  wss://agents-mac-mini.tail826413.ts.net:8766/ws
+Single port — one cert to accept!
+Client connected: 100.99.152.127
+Warming up Moonshine...
+Model ready!
+VoiceAgent: https://agents-mac-mini.tail826413.ts.net:8766/agent.html
+WebSocket:  wss://agents-mac-mini.tail826413.ts.net:8766/ws
+Single port — one cert to accept!
+Client connected: 100.99.152.127
+Warming up Moonshine...
+Model ready!
+VoiceAgent: https://agents-mac-mini.tail826413.ts.net:8766/agent.html
+WebSocket:  wss://agents-mac-mini.tail826413.ts.net:8766/ws
+Single port — one cert to accept!
+Client connected: 100.99.152.127

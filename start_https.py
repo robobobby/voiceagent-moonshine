@@ -72,11 +72,14 @@ async def websocket_handler(request):
             })
 
             # TTS
+            print(f"Starting TTS generation...", flush=True)
             try:
                 tts_audio = await generate_tts(response_text)
+                print(f"TTS generated: {len(tts_audio) if tts_audio else 0} bytes", flush=True)
                 if tts_audio:
                     await ws.send_json({'type': 'tts_audio', 'format': 'mp3', 'size': len(tts_audio)})
                     await ws.send_bytes(tts_audio)
+                    print(f"TTS audio sent to client", flush=True)
             except Exception as e:
                 print(f"TTS error: {e}", flush=True)
 
@@ -106,7 +109,20 @@ async def main():
 
     app = web.Application()
     app.router.add_get('/ws', websocket_handler)
-    app.router.add_static('/', DIR, show_index=True)
+
+    # Serve static files with no-cache headers
+    async def serve_file(request):
+        name = request.match_info.get('filename', 'agent.html')
+        fpath = os.path.join(DIR, name)
+        if not os.path.isfile(fpath):
+            return web.Response(status=404, text='Not found')
+        return web.FileResponse(fpath, headers={
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+        })
+
+    app.router.add_get('/{filename}', serve_file)
+    app.router.add_get('/', lambda r: web.HTTPFound('/agent.html'))
 
     runner = web.AppRunner(app)
     await runner.setup()

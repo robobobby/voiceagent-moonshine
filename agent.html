@@ -375,21 +375,42 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// --- TTS (OpenAI server-side, played as audio) ---
+// --- TTS (OpenAI server-side, played via AudioContext for iOS compat) ---
 let ttsAudioPending = false;
-let currentAudio = null;
+let ttsAudioCtx = null;
+let ttsSource = null;
 
-function playTtsAudio(mp3Blob) {
-  const url = URL.createObjectURL(mp3Blob);
-  if (currentAudio) {
-    currentAudio.pause();
-    URL.revokeObjectURL(currentAudio.src);
+// Create/resume AudioContext on user gesture (iOS requirement)
+function ensureTtsContext() {
+  if (!ttsAudioCtx) {
+    ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  currentAudio = new Audio(url);
-  speaking = true;
-  currentAudio.onended = () => { speaking = false; URL.revokeObjectURL(url); currentAudio = null; };
-  currentAudio.onerror = () => { speaking = false; URL.revokeObjectURL(url); currentAudio = null; };
-  currentAudio.play().catch(() => { speaking = false; });
+  if (ttsAudioCtx.state === 'suspended') {
+    ttsAudioCtx.resume();
+  }
+  return ttsAudioCtx;
+}
+
+async function playTtsAudio(mp3Blob) {
+  try {
+    const ctx = ensureTtsContext();
+    // Stop previous playback
+    if (ttsSource) {
+      try { ttsSource.stop(); } catch(e) {}
+    }
+    const arrayBuf = await mp3Blob.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrayBuf);
+    ttsSource = ctx.createBufferSource();
+    ttsSource.buffer = audioBuf;
+    ttsSource.connect(ctx.destination);
+    speaking = true;
+    ttsSource.onended = () => { speaking = false; ttsSource = null; };
+    ttsSource.start(0);
+    console.log('TTS playing via AudioContext');
+  } catch(e) {
+    speaking = false;
+    console.error('TTS playback error:', e);
+  }
 }
 
 // --- Audio Capture ---
@@ -457,8 +478,10 @@ function drawVisualizer() {
 // --- Recording Controls ---
 function startRecording() {
   if (!audioCtx) return;
+  // Ensure TTS AudioContext is unlocked during this user gesture
+  ensureTtsContext();
   // Stop any ongoing speech
-  if (speaking && currentAudio) { currentAudio.pause(); speaking = false; }
+  if (speaking && ttsSource) { try { ttsSource.stop(); } catch(e) {} speaking = false; }
   audioChunks = [];
   recording = true;
   document.getElementById('micBtn').classList.add('recording');

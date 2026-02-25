@@ -95,7 +95,7 @@ async def get_llm_response(conversation: list[dict]) -> str:
     return await asyncio.get_event_loop().run_in_executor(None, _call)
 
 
-async def generate_tts(text: str, voice: str = "nova") -> bytes | None:
+async def generate_tts(text: str, voice: str = "onyx") -> bytes | None:
     """Generate speech audio via OpenAI TTS API. Returns MP3 bytes."""
     import urllib.request
 
