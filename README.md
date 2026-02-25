@@ -1,60 +1,67 @@
-# VoiceAgent 🎙️
+# VoiceAgent — Voice-First AI Agent Interface
 
-**Voice-first AI agent interface using [Moonshine STT](https://github.com/moonshine-ai/moonshine) for local, real-time speech-to-text.**
+Talk to an AI agent using your voice. Local speech-to-text via [Moonshine](https://github.com/usefulmachines/moonshine), LLM responses via GPT-4o-mini, spoken back via browser TTS.
 
-Zero cloud costs. Runs entirely on your machine. ~225ms transcription for 10s of audio on Apple Silicon.
+## Performance
 
-## Features
-
-- **Push-to-talk mode** (`index.html`) — Hold mic button, speak, release → instant transcription
-- **Streaming mode** (`streaming.html`) — Click to start, words appear in real-time as you speak
-- **Audio visualizer** — Live frequency display
-- **Keyboard shortcut** — Hold/press Space to record
-- **Touch support** — Works on mobile browsers
-
-## Quick Start
-
-```bash
-# Create venv and install dependencies
-python3 -m venv .venv
-source .venv/bin/activate
-pip install moonshine-voice websockets
-
-# Start the server
-python3 server.py          # Push-to-talk mode
-# OR
-python3 server_streaming.py  # Streaming mode
-
-# Open browser
-open http://localhost:8766              # Push-to-talk UI
-open http://localhost:8766/streaming.html  # Streaming UI
-```
+- **STT:** ~200ms for 10s audio on Apple M4 Pro (49x real-time)
+- **Full loop:** ~1.5s speak → transcribe → think → respond
+- **Cost:** STT is 100% local/free. LLM is ~$0.001/conversation turn.
 
 ## Architecture
 
 ```
-Browser (mic) → WebSocket (float32 PCM @ 16kHz) → Python server → Moonshine STT → WebSocket → Browser
+Browser Mic → WebSocket → Moonshine STT (local) → GPT-4o-mini → WebSocket → Browser TTS
 ```
 
-- **`server.py`** — Push-to-talk: receives complete audio, transcribes in one shot
-- **`server_streaming.py`** — Streaming: receives audio chunks continuously, returns partial transcripts
-- **`index.html`** — Push-to-talk UI with frequency visualizer
-- **`streaming.html`** — Streaming UI with live text display
+Three modes:
+1. **`agent.html`** — Full voice agent (STT → LLM → TTS) ← **start here**
+2. **`index.html`** — Push-to-talk transcription only
+3. **`streaming.html`** — Real-time streaming transcription
 
-## Model
+## Setup
 
-Uses Moonshine `tiny-en` model (bundled with `moonshine-voice` package). Runs on CPU — no GPU required.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-- **Inference speed:** ~225ms for 10s audio on M4 Pro
-- **Streaming latency:** Partial transcripts every ~300ms
-- **Languages:** en, ar, es, ja, ko, vi, uk, zh
+# Agent mode (needs OPENAI_API_KEY in keychain or env)
+python agent_server.py
+# Open http://localhost:8766/agent.html
+
+# STT-only mode
+python server.py
+# Open http://localhost:8766
+
+# Streaming mode
+python server_streaming.py
+# Open http://localhost:8766/streaming.html
+```
 
 ## Requirements
 
-- Python 3.10+
-- macOS / Linux (tested on macOS arm64)
-- A microphone
-- A modern browser with WebRTC support
+- Python 3.11+
+- macOS / Linux (Moonshine ONNX runs on CPU)
+- Browser with mic access
+- OpenAI API key (for agent mode only)
+
+## How It Works
+
+1. **Hold** the mic button (or spacebar) and speak
+2. **Release** to send audio to Moonshine STT
+3. Your words appear instantly (~200ms)
+4. AI thinks and responds (~500-1500ms)
+5. Response is spoken aloud via browser SpeechSynthesis
+6. Full conversation history maintained for context
+
+## Tech Stack
+
+- **Moonshine** (tiny-en) — Local STT, ONNX runtime, ~50MB model
+- **GPT-4o-mini** — Fast, cheap LLM for conversational responses
+- **Browser SpeechSynthesis** — Zero-cost TTS, uses system voices
+- **WebSocket** — Low-latency audio streaming
+- **Vanilla HTML/CSS/JS** — No build step, no framework
 
 ## License
 
