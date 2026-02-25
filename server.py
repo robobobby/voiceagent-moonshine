@@ -114,7 +114,7 @@ async def main():
     Thread(target=httpd.serve_forever, daemon=True).start()
     print(f"UI available at http://localhost:{http_port}")
 
-    async with websockets.serve(handle_client, "localhost", port):
+    async with websockets.serve(handle_client, "localhost", port, max_size=10 * 1024 * 1024):
         await asyncio.Future()
 
 
